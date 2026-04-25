@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  mongodb_uts:
+    image: mongo:latest
+    container_name: mongodb_film_crawling
+    ports:
+      - "27017:27017" 
+    volumes:
+      - mongo_data_uts:/data/db 
+    restart: unless-stopped
+volumes:
+  mongo_data_uts:
+    name: volume_film_uts
