@@ -1,0 +1,20 @@
+{
+  "_id": "hash_sha1",
+  "src": "boxofficemojo_website",
+  "fmt": "html",
+  "ts": "2026-01-20T10:00:00Z",
+  "title": "Avatar",
+  "text": "Film Avatar berada pada peringkat 1 dalam daftar Top Lifetime Grosses Worldwide di Box Office Mojo.",
+  "entities": ["film", "box_office", "website"],
+  "kv": {
+    "rank": "1",
+    "worldwide_lifetime_gross": "$2,923,706,026",
+    "domestic_lifetime_gross": "$785,221,649",
+    "domestic_percent": "26.9%",
+    "foreign_lifetime_gross": "$2,138,489,059",
+    "foreign_percent": "73.1%",
+    "year": "2009",
+    "source_url": "https://www.boxofficemojo.com/chart/ww_top_lifetime_gross/",
+    "movie_url": "https://www.boxofficemojo.com/title/tt0499549/"
+  }
+}

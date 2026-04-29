@@ -1,8 +1,6 @@
 import requests
 import pymongo
 import hashlib
-import json
-from bs4 import BeautifulSoup
 from datetime import datetime, timezone
 
 client = pymongo.MongoClient("mongodb://localhost:27017/")
@@ -10,93 +8,54 @@ db = client["film_crawling"]
 collection = db["movies"]
 
 collection.create_index([("title", pymongo.TEXT)])
-collection.create_index([("src", pymongo.ASCENDING)])
 collection.create_index([("entities", pymongo.ASCENDING)])
+print("Berhasil membuat index pencarian judul dan genre.")
 
-URL = "https://www.imdb.com/chart/top/"
+API_KEY = "d5b9d125b1f4fc60062509602f76f477"
+URL = f"https://api.themoviedb.org/3/movie/popular?api_key={API_KEY}&language=id-ID&page=1"
 
-
-def clean_text(text):
-    if not text:
-        return ""
-    return " ".join(text.split())
-
-
-def scrape_imdb_movies():
+def fetch_and_store_movies():
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0",
-            "Accept-Language": "en-US,en;q=0.9"
-        }
-
-        response = requests.get(URL, headers=headers, timeout=15)
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        # IMDb biasanya menyimpan data awal di script JSON-LD.
-        script_tag = soup.find("script", type="application/ld+json")
-
-        if not script_tag:
-            print("Data JSON-LD IMDb tidak ditemukan. Struktur halaman mungkin berubah.")
+        response = requests.get(URL)
+        data = response.json()
+        
+        if "results" not in data:
+            print("Gagal mengambil data dari API.")
             return
 
-        data = json.loads(script_tag.string)
-
-        movies = data.get("itemListElement", [])
-
-        if not movies:
-            print("Daftar film tidak ditemukan.")
-            return
-
+        movies = data["results"]
         inserted_count = 0
 
-        for item in movies:
-            movie = item.get("item", {})
-
-            title = clean_text(movie.get("name", ""))
-            movie_url = movie.get("url", "")
-            description = clean_text(movie.get("description", ""))
-
-            rank = item.get("position")
-
-            if not title:
-                continue
-
-            raw_id = f"imdb_website|{title}|{rank}"
-            hashed_id = hashlib.sha1(raw_id.encode()).hexdigest()
-
+        for movie in movies:
+            raw_id = f"tmdb_api|{movie['id']}"
+            hashed_id = hashlib.sha1(raw_id.encode()).hexdigest()            
             current_time_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            genre_list = [f"Genre_{gid}" for gid in movie.get("genre_ids", [])]
 
             document = {
-                "_id": hashed_id,
-                "src": "imdb_website",
-                "fmt": "html",
-                "ts": current_time_utc,
-                "title": title,
-                "text": description,
-                "entities": ["film", "imdb", "top_250"],
-                "kv": {
-                    "rank": rank,
-                    "source_url": URL,
-                    "movie_url": movie_url
+                "_id": hashed_id, 
+                "src": "tmdb_api", 
+                "fmt": "json", 
+                "ts": current_time_utc, 
+                "title": movie.get("title"), 
+                "text": movie.get("overview"), 
+                "entities": genre_list, 
+                "kv": { 
+                    "popularity": movie.get("popularity"),
+                    "vote_average": movie.get("vote_average"),
+                    "vote_count": movie.get("vote_count"),
+                    "release_date": movie.get("release_date")
                 }
             }
 
-            collection.update_one(
-                {"_id": document["_id"]},
-                {"$set": document},
-                upsert=True
-            )
-
+            collection.update_one({"_id": document["_id"]}, {"$set": document}, upsert=True)
             inserted_count += 1
-            print(f"Disimpan dari IMDb: #{rank} {title}")
+            print(f"Disimpan: {document['title']}")
 
-        print(f"\nSelesai! Berhasil menyimpan {inserted_count} data film dari IMDb.")
+        print(f"\nSelesai! Berhasil menyimpan {inserted_count} film ke database.")
 
     except Exception as e:
-        print(f"Terjadi kesalahan saat scraping IMDb: {e}")
-
+        print(f"Terjadi kesalahan: {e}")
 
 if __name__ == "__main__":
-    scrape_imdb_movies()
+    fetch_and_store_movies()
